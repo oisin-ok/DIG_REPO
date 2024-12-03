@@ -63,7 +63,7 @@ ui <- fluidPage(
                         
                         #sidebar - input control, select a variable to see its effect on mortality
                         sidebarPanel(
-                          selectInput("base_var", "Choose a variable to compare baseline values:", names(dig.df))
+                          selectInput("base_var", "Choose a variable to compare baseline values:", c("a", "b", "c"))
                         ),
                         ###
                         
