@@ -9,6 +9,17 @@
 
 library(shiny)
 library(tidyverse)
+library(table1)
+
+# Variable Lists
+
+# Categorical Variables
+baseline_vars <- c("TRTMT", "AGE", "SEX", "BMI", "KLEVEL", "CREAT", "DIABP", "SYSBP", "HYPERTEN", "CVD", "WHF", "DIG", "HOSP")
+cat_vars <- c("TRTMT", "SEX", "HYPERTEN", "CVD", "WHF", "DIG", "HOSP", "DEATH")
+cont_vars <- c("AGE", "BMI", "KLEVEL", "CREAT", "DIABP", "SYSBP", "HOSPDAYS", "DEATHDAY")
+
+
+
 
 # Define UI for application that draws a histogram
 ui <- fluidPage(
@@ -22,23 +33,66 @@ ui <- fluidPage(
                         
                         #sidebar - input control, select demographic variable
                         sidebarPanel(
-                          selectInput("dem_var", "Choose a variable to view its distribution:", c("a", "b", "c"))
+                          selectInput("dem_var", "Choose a variable to view its distribution:", choices = c("a", "b", "c"))
                         ), 
                         ###
                         
                         #main panel - outputs
                         mainPanel(
-                          
-                          
-                        )
+                                  tabsetPanel(
+                                              tabPanel("Summary Statistics"
+                                                        
+                                                        
+                                                        
+                                                      ), # tab1 close
+                                              
+                                              tabPanel("Summary Statistics"
+                                                       
+                                                       
+                                                       
+                                                      ) # tab2 close
+                                              ) # tabset close
+                                  ) # main close
                         ###
                         
-                      )
-             ),
+                      ) # inner sidebar Layout close
+             ), # navtab 1 close
              
-             
-             #PAGE 2         
+             #PAGE 2
              tabPanel("Baseline Variables",
+                      sidebarLayout(
+                        
+                        #sidebar - input control, select a variable to see its effect on mortality
+                        sidebarPanel(
+                          selectInput("base_var1", "Choose a variable to compare baseline values:", choices = baseline_vars, selected = "AGE"),
+                          selectInput("base_var2", "Choose a variable to compare across:", choices = cat_vars)
+                        ),
+                        ###
+                        
+                        #main panel - outputs
+                        mainPanel(
+                                  tabsetPanel(
+                                              tabPanel("Summary Statistics",
+                                                       uiOutput("table_baseline_compare"),
+                                                       plotOutput("boxplot_baseline_compare")
+                                                       
+                                              ), # tab1 close
+                                              
+                                              tabPanel("Summary Statistics"
+                                                       
+                                                       
+                                                       
+                                              ) # tab2 close
+                                  ) # tabset close
+                          
+                        ) # main close
+                        ###
+                        
+                                    ) #  inner sidebar Layout close
+                      ),# navtab close
+             
+             #PAGE 3         
+             tabPanel("Mortality",
                       sidebarLayout(
                         
                         #sidebar - input control, select a baseline measurement to compare across groups
@@ -54,32 +108,14 @@ ui <- fluidPage(
                         )
                         ###
                         
-                      )
-             ),
-             
-             #PAGE3
-             tabPanel("Mortality",
-                      sidebarLayout(
-                        
-                        #sidebar - input control, select a variable to see its effect on mortality
-                        sidebarPanel(
-                          selectInput("base_var", "Choose a variable to compare baseline values:", c("a", "b", "c"))
-                        ),
-                        ###
-                        
-                        #main panel - outputs
-                        mainPanel(
-                          
-                          
-                        )
-                        ###
-                        
-                      )
-             )
+                      ) # inner sidebar Layout close
+             ) # nav_tab 3 close
              
              
-  )
-)
+             
+             
+            ) #navbar close
+)# UI close
 
 # Define server logic required to draw a histogram
 server <- function(input, output) {
@@ -110,7 +146,46 @@ server <- function(input, output) {
   levels(dig.df$DIG) <- c("No", "Yes") # Hospitalisation due to Digoxin Toxicity
   levels(dig.df$HOSP) <- c("No", "Yes") # Hospitalisation (any)
   levels(dig.df$DEATH) <- c("Alive", "Dead") # Vital status of patient
-}
+
+  
+  # Baseline Variables Outputs
+  reactive({
+    
+  })
+  
+  # BASELINE COMPARISONS - TAB 2
+  
+  bvar_1 <- reactive({ input$bvar_1 })
+  bvar_2 <- reactive({ input$bvar_2 })
+  
+  
+  
+  output$table_baseline_compare <- renderUI({
+    var1 <- input$base_var1
+    var2 <- input$base_var2
+    
+    formula <- as.formula(paste("~", input$base_var1, "|", input$base_var2))
+    
+    table1(formula, data = dig.df) # generate table1 with two input variables # maybe make this able to select multiple variables in rows later?
+  })
+
+  
+  
+  output$boxplot_baseline_compare <- renderPlot({
+    dig.df %>%
+      select(bvar_1, bvar_2) %>%
+      na.omit() %>%
+      ggplot(aes(x = bvar_2, y = bvar_1, fill = bvar_2)) +
+      geom_boxplot() +
+      labs(title = "Age by Treatment",
+           x = "Treatment Group",
+           y = "Age (years)") +
+      theme_bw()
+  })
+  
+  
+  
+  }
 
 # Run the application 
 shinyApp(ui = ui, server = server)
