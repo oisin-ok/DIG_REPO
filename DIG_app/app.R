@@ -10,6 +10,7 @@
 library(shiny)
 library(tidyverse)
 library(table1)
+library(plotly)
 
 # Variable Lists
 
@@ -73,14 +74,13 @@ ui <- fluidPage(
                         mainPanel(
                                   tabsetPanel(
                                               tabPanel("Summary Statistics",
-                                                       uiOutput("table_baseline_compare"),
-                                                       plotOutput("boxplot_baseline_compare")
+                                                       uiOutput("table_baseline_compare")
                                                        
                                               ), # tab1 close
                                               
-                                              tabPanel("Summary Statistics"
+                                              tabPanel("Summary Statistics",
                                                        
-                                                       
+                                                       plotOutput("boxplot_baseline_compare")
                                                        
                                               ) # tab2 close
                                   ) # tabset close
@@ -153,12 +153,7 @@ server <- function(input, output) {
     
   })
   
-  # BASELINE COMPARISONS - TAB 2
-  
-  bvar_1 <- reactive({ input$bvar_1 })
-  bvar_2 <- reactive({ input$bvar_2 })
-  
-  
+  # BASELINE COMPARISONS - TAB 2  
   
   output$table_baseline_compare <- renderUI({
     var1 <- input$base_var1
@@ -170,19 +165,29 @@ server <- function(input, output) {
   })
 
   
+  # Sort of works, needs to be labelled and made interactive with hover tooltips
+  bvar_1 <- reactive({input$base_var1})
+  bvar_2 <- reactive({input$base_var2})
   
   output$boxplot_baseline_compare <- renderPlot({
     dig.df %>%
-      select(bvar_1, bvar_2) %>%
+      select(bvar_1(), bvar_2()) %>%
       na.omit() %>%
-      ggplot(aes(x = bvar_2, y = bvar_1, fill = bvar_2)) +
-      geom_boxplot() +
-      labs(title = "Age by Treatment",
-           x = "Treatment Group",
-           y = "Age (years)") +
-      theme_bw()
+      ggplot(aes_string(x = bvar_2(), y = bvar_1(), fill = bvar_2())) +
+      geom_boxplot(tooltip = c("x", "y", "text"))
   })
   
+  output$plot1 <- renderPlot({ 
+    static_compare_baseline <- dig.df %>%
+      select()
+      filter(species == input$species) %>%
+      filter(sex == input$sex) %>%
+      filter(body_mass_g >= input$bmass[1] & body_mass_g <= input$bmass[2]) %>%
+      filter(year == input$year) %>%
+      ggplot(aes(x = bill_depth_mm, y = bill_length_mm)) +
+      geom_point()
+      
+  })
   
   
   }
