@@ -165,7 +165,11 @@ server <- function(input, output) {
   })
 
   
+<<<<<<< HEAD
   # Sort of works, needs to be labelled and made interactive with hover tooltips. Also don't forget to remove KLEVEL outlier.
+=======
+  # Sort of works, needs to be labelled and made interactive with hover tooltips
+>>>>>>> 4f6bcce1ce3fb8e1a584da6323060941231b7296
   bvar_1 <- reactive({input$base_var1})
   bvar_2 <- reactive({input$base_var2})
   
