@@ -80,7 +80,7 @@ ui <- fluidPage(
                                               
                                               tabPanel("Summary Statistics",
                                                        
-                                                       plotOutput("boxplot_baseline_compare")
+                                                       plotlyOutput("boxplot_baseline_compare_plotly")
                                                        
                                               ) # tab2 close
                                   ) # tabset close
@@ -148,6 +148,10 @@ server <- function(input, output) {
   levels(dig.df$DEATH) <- c("Alive", "Dead") # Vital status of patient
 
   
+  #remove KLEVEL outlier
+  dig.df$KLEVEL[dig.df$KLEVEL > 100] <- NA
+  
+  
   # Baseline Variables Outputs
   reactive({
     
@@ -165,32 +169,29 @@ server <- function(input, output) {
   })
 
   
-<<<<<<< HEAD
   # Sort of works, needs to be labelled and made interactive with hover tooltips. Also don't forget to remove KLEVEL outlier.
-=======
-  # Sort of works, needs to be labelled and made interactive with hover tooltips
->>>>>>> 4f6bcce1ce3fb8e1a584da6323060941231b7296
+
   bvar_1 <- reactive({input$base_var1})
   bvar_2 <- reactive({input$base_var2})
   
-  output$boxplot_baseline_compare <- renderPlot({
+  
+  output$boxplot_baseline_compare_plotly <- renderPlotly({
     dig.df %>%
       select(bvar_1(), bvar_2()) %>%
       na.omit() %>%
-      ggplot(aes_string(x = bvar_2(), y = bvar_1(), fill = bvar_2())) +
-      geom_boxplot(tooltip = c("x", "y", "text"))
-  })
-  
-  output$plot1 <- renderPlot({ 
-    static_compare_baseline <- dig.df %>%
-      select()
-      filter(species == input$species) %>%
-      filter(sex == input$sex) %>%
-      filter(body_mass_g >= input$bmass[1] & body_mass_g <= input$bmass[2]) %>%
-      filter(year == input$year) %>%
-      ggplot(aes(x = bill_depth_mm, y = bill_length_mm)) +
-      geom_point()
-      
+      plot_ly(
+        x = ~ .[[bvar_2()]],
+        y = ~ .[[bvar_1()]],
+        type = "box",
+        color = ~ .[[bvar_2()]],
+        colors = c("red", "blue")
+      ) %>%
+      layout(
+        title = paste("Comparison of", bvar_1(), "across", bvar_2()),
+        xaxis = list(title = bvar_2()),
+        yaxis = list(title = bvar_1())
+      )
+    
   })
   
   
