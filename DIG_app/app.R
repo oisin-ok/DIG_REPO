@@ -21,6 +21,10 @@ dig.df <- read.csv("DIG.csv")
 dig.df <- dig.df %>%
   select(ID, TRTMT, AGE, SEX, BMI, KLEVEL, CREAT, DIABP, SYSBP, HYPERTEN, CVD, WHF, DIG, HOSP, HOSPDAYS, DEATH, DEATHDAY)
 
+#calculate month variable
+dig.df <- dig.df %>%
+  mutate(Month = round(DEATHDAY/30))
+
 #set variable classes
 dig.df$TRTMT <- as.factor(dig.df$TRTMT)
 dig.df$SEX <- as.factor(dig.df$SEX)
@@ -100,7 +104,7 @@ ui <- fluidPage(
                         #sidebar - input control, select a variable to see its effect on mortality
                         sidebarPanel(
                           selectInput("base_var1", "Choose a variable to compare baseline values:", choices = baseline_vars, selected = "AGE"),
-                          selectInput("base_var2", "Choose a variable to compare across:", choices = cat_vars)
+                          selectInput("base_var2", "Choose a variable to compare across:", choices = cat_vars) # make this optional? so if nothing selected, single box plot summarising variable
                         ),
                         ###
                         
@@ -125,7 +129,30 @@ ui <- fluidPage(
                                     ) #  inner sidebar Layout close
                       ),# navtab close
              
-             #PAGE 3         
+             
+             #PAGE 3        - mosaic plots between variables and split over groups
+             tabPanel("Associations",
+                      sidebarLayout(
+                        
+                        #sidebar - input control
+                        sidebarPanel(
+                          
+                        ), 
+                        ###
+                        
+                        #main panel - outputs
+                        mainPanel(
+                          
+                          
+                        )
+                        ###
+                        
+                      ) # inner sidebar Layout close
+             ), # nav_tab 3 close
+             
+             
+             
+             #PAGE 4         
              tabPanel("Mortality",
                       sidebarLayout(
                         
@@ -143,14 +170,14 @@ ui <- fluidPage(
                         ###
                         
                       ) # inner sidebar Layout close
-             ), # nav_tab 3 close
+             ), # nav_tab 4 close
              
              
-             #PAGE 4         
+             #PAGE 5         
              tabPanel("Explore the Data",
                      
                       fluidPage(
-                        titlePanel("Basic DataTable"),
+                        titlePanel("Digitalis Investigation Group Trial"),
                       
                                 fluidRow(
                                   column(3,
@@ -175,7 +202,7 @@ ui <- fluidPage(
                                           )
                                           ), # fluid row close
                                 # Create a new row for the table.
-                                DT::dataTableOutput("table_dt")
+                                DT::dataTableOutput("table_dt") #need to make the units/variable names clearer, and address the binary classifier under hospitalisation types
 
                         #Maybe make one of those line plots for every variable we saw in the lectures to visualise the selection?
                         
@@ -184,7 +211,7 @@ ui <- fluidPage(
              
              
              
-                      ) #nav_tab 3 close
+                      ) #nav_tab 5 close
             ) #navbar close
 
 )# UI close
@@ -272,7 +299,12 @@ server <- function(input, output) {
     } else {
       data
     }
-  }))
+  },  rownames = FALSE,
+      colnames = c("ID", "Treatment", "Age (Years)", "Sex", "BMI", "Serum Potassium (mmol/L)", "Serum Creatinine (mg/dL)",
+                   "Diastolic BP (mmHg)", "Systolic BP (mmHg)", "Hypertension History", "Hospitalisation: Cardiovascular Disease (1=Yes)",
+                   "Hospitalisation: Worsening Heart Failure (1=Yes)", "Hospitalisation: Digoxin Toxicity (1=Yes)", "Hospitalisation (Any)",
+                   "Time till First Hospitalisation (Days)", "Status", "Time till Last Followup (Days)", "Time till Last Followup (Months)"),
+      caption = "Source: Digitalis Investigation Group Trial" ))
   
   
   }
