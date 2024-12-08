@@ -11,6 +11,40 @@ library(shiny)
 library(tidyverse)
 library(table1)
 library(plotly)
+library(DT)
+
+#Data Cleaning
+#load in data
+dig.df <- read.csv("DIG.csv")
+
+#select variables
+dig.df <- dig.df %>%
+  select(ID, TRTMT, AGE, SEX, BMI, KLEVEL, CREAT, DIABP, SYSBP, HYPERTEN, CVD, WHF, DIG, HOSP, HOSPDAYS, DEATH, DEATHDAY)
+
+#set variable classes
+dig.df$TRTMT <- as.factor(dig.df$TRTMT)
+dig.df$SEX <- as.factor(dig.df$SEX)
+dig.df$HYPERTEN <- as.factor(dig.df$HYPERTEN)
+dig.df$CVD <- as.factor(dig.df$CVD)
+dig.df$WHF <- as.factor(dig.df$WHF)
+dig.df$DIG <- as.factor(dig.df$DIG)
+dig.df$HOSP <- as.factor(dig.df$HOSP)
+dig.df$DEATH <- as.factor(dig.df$DEATH)
+
+#rename factor levels
+levels(dig.df$SEX) <- c("Male", "Female")
+levels(dig.df$TRTMT) <- c("Placebo", "Drug")
+levels(dig.df$HYPERTEN) <- c("No", "Yes") # History of Hypertension
+levels(dig.df$CVD) <- c("No", "Yes") # Hospitalisation due to Cardiovascular Disease
+levels(dig.df$WHF) <- c("No", "Yes") # Hospitalisation due to Worsening Heart Failure
+levels(dig.df$DIG) <- c("No", "Yes") # Hospitalisation due to Digoxin Toxicity
+levels(dig.df$HOSP) <- c("No", "Yes") # Hospitalisation (any)
+levels(dig.df$DEATH) <- c("Alive", "Dead") # Vital status of patient
+
+
+#remove KLEVEL outlier
+dig.df$KLEVEL[dig.df$KLEVEL > 100] <- NA
+
 
 # Variable Lists
 
@@ -109,48 +143,61 @@ ui <- fluidPage(
                         ###
                         
                       ) # inner sidebar Layout close
-             ) # nav_tab 3 close
+             ), # nav_tab 3 close
+             
+             
+             #PAGE 4         
+             tabPanel("Explore the Data",
+                     
+                      fluidPage(
+                        titlePanel("Basic DataTable"),
+                      
+                                fluidRow(
+                                  column(3,
+                                         radioButtons("trtmt_button",
+                                                     "Treatment:",
+                                                     c("Any", unique(as.character(dig.df$TRTMT))))
+                                         ),
+                                  column(3,
+                                         radioButtons("sex_button",
+                                                     "Sex:",
+                                                     c("Any", unique(as.character(dig.df$SEX))))
+                                         ),
+                                  column(3,
+                                         radioButtons("death_button",
+                                                      "Status:",
+                                                      c("All", unique(as.character(dig.df$DEATH))))
+                                         ),
+                                  column(3,
+                                         checkboxGroupInput("hosp_buttons", "Select Hospitalisation Types",
+                                                            choices = c("CVD", "WHF", "DIG"),
+                                                            selected = NULL),
+                                          )
+                                          ), # fluid row close
+                                # Create a new row for the table.
+                                DT::dataTableOutput("table_dt")
+
+                        #Maybe make one of those line plots for every variable we saw in the lectures to visualise the selection?
+                        
+                        
+                                ) # fluidPage close
              
              
              
-             
+                      ) #nav_tab 3 close
             ) #navbar close
+
 )# UI close
 
-# Define server logic required to draw a histogram
+
 server <- function(input, output) {
   
-  #load in data
-  dig.df <- read.csv("DIG.csv")
+  ####################### SERVER CODE TAB 1 ##################################################################################################
   
-  #select variables
-  dig.df <- dig.df %>%
-    select(ID, TRTMT, AGE, SEX, BMI, KLEVEL, CREAT, DIABP, SYSBP, HYPERTEN, CVD, WHF, DIG, HOSP, HOSPDAYS, DEATH, DEATHDAY)
   
-  #set variable classes
-  dig.df$TRTMT <- as.factor(dig.df$TRTMT)
-  dig.df$SEX <- as.factor(dig.df$SEX)
-  dig.df$HYPERTEN <- as.factor(dig.df$HYPERTEN)
-  dig.df$CVD <- as.factor(dig.df$CVD)
-  dig.df$WHF <- as.factor(dig.df$WHF)
-  dig.df$DIG <- as.factor(dig.df$DIG)
-  dig.df$HOSP <- as.factor(dig.df$HOSP)
-  dig.df$DEATH <- as.factor(dig.df$DEATH)
   
-  #rename factor levels
-  levels(dig.df$SEX) <- c("Male", "Female")
-  levels(dig.df$TRTMT) <- c("Placebo", "Drug")
-  levels(dig.df$HYPERTEN) <- c("No", "Yes") # History of Hypertension
-  levels(dig.df$CVD) <- c("No", "Yes") # Hospitalisation due to Cardiovascular Disease
-  levels(dig.df$WHF) <- c("No", "Yes") # Hospitalisation due to Worsening Heart Failure
-  levels(dig.df$DIG) <- c("No", "Yes") # Hospitalisation due to Digoxin Toxicity
-  levels(dig.df$HOSP) <- c("No", "Yes") # Hospitalisation (any)
-  levels(dig.df$DEATH) <- c("Alive", "Dead") # Vital status of patient
-
   
-  #remove KLEVEL outlier
-  dig.df$KLEVEL[dig.df$KLEVEL > 100] <- NA
-  
+  ####################### SERVER CODE TAB 2 ##################################################################################################
   
   # Baseline Variables Outputs
   reactive({
@@ -169,12 +216,12 @@ server <- function(input, output) {
   })
 
   
-  # Sort of works, needs to be labelled and made interactive with hover tooltips. Also don't forget to remove KLEVEL outlier.
 
+  # selected variables
   bvar_1 <- reactive({input$base_var1})
   bvar_2 <- reactive({input$base_var2})
   
-  
+  # box plots
   output$boxplot_baseline_compare_plotly <- renderPlotly({
     dig.df %>%
       select(bvar_1(), bvar_2()) %>%
@@ -193,6 +240,39 @@ server <- function(input, output) {
       )
     
   })
+  
+  ####################### SERVER CODE TAB 3 ##################################################################################################
+  
+  
+  
+  
+  ####################### SERVER CODE TAB 4 ##################################################################################################
+  
+  # Filter data based on selections
+  output$table_dt <- DT::renderDataTable(DT::datatable({
+    data <- dig.df
+    if (input$trtmt_button != "Any") {
+      data <- data[data$TRTMT == input$trtmt_button,]
+    }
+    if (input$sex_button != "Any") {
+      data <- data[data$SEX == input$sex_button,]
+    }
+    if (input$death_button != "All") {
+      data <- data[data$DEATH == input$death_button,]
+    }
+    
+    
+    
+    hosp_columns <- c("CVD", "WHF", "DIG")
+    data[hosp_columns] <- lapply(data[hosp_columns], function(x) ifelse(x == "Yes", 1, 0))
+    
+    
+    if (!is.null(input$hosp_buttons) && length(input$hosp_buttons) > 0) { # if something is selected:
+      data <- data[rowSums(data[, input$hosp_buttons, drop = FALSE]) == length(input$hosp_buttons), ] # filter for rows where sum of the selected columns == the number of selected columns 
+    } else {
+      data
+    }
+  }))
   
   
   }

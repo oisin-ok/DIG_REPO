@@ -82,6 +82,7 @@ levels(dig.df$HOSP) <- c("No", "Yes") # Hospitalisation (any)
 levels(dig.df$DEATH) <- c("Alive", "Dead") # Vital status of patient
 
 head(dig.df)
+dig.df
 ```
 
 ## Data Exploration
