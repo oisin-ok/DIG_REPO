@@ -50,6 +50,19 @@ levels(dig.df$DEATH) <- c("Alive", "Dead") # Vital status of patient
 dig.df$KLEVEL[dig.df$KLEVEL > 100] <- NA
 
 
+#mortality data frame
+mort_month<-summary(survfit(Surv(Month, DEATH) ~ 1, data = dig.df))
+
+mortality.df <- data.frame(Month = mort_month$time, # Extract month
+                           Enrolled = mort_month$n.risk[,1], # Extract number enrolled at beginning of each month
+                           Deaths = mort_month$n.event[,2], # Extract number of people who died (finished trial and died)
+                           Cum_Prob_Death = mort_month$pstate[,2]) # Extract the cumulative probability of death at each month
+
+mortality.df <- mutate(mortality.df, Monthly_Risk = Deaths/Enrolled)
+
+
+
+
 # Variable Lists
 
 # Categorical Variables
@@ -116,7 +129,7 @@ ui <- fluidPage(
                                                        
                                               ), # tab1 close
                                               
-                                              tabPanel("Summary Statistics",
+                                              tabPanel("Visualistion",
                                                        
                                                        plotlyOutput("boxplot_baseline_compare_plotly")
                                                        
@@ -158,13 +171,13 @@ ui <- fluidPage(
                         
                         #sidebar - input control, select a baseline measurement to compare across groups
                         sidebarPanel(
-                          selectInput("base_var", "Choose a variable to compare baseline values:", c("a", "b", "c"))
+                          radioButtons("mortality_type", "Select mortality statistic to view:", c("Absolute_Deaths", "Cumulative_Risk", "Instantaneous Risk", "Kaplan_Meir"))
                         ), 
                         ###
                         
                         #main panel - outputs
                         mainPanel(
-                          
+                          plotOutput("km_plot")
                           
                         )
                         ###
@@ -271,9 +284,23 @@ server <- function(input, output) {
   ####################### SERVER CODE TAB 3 ##################################################################################################
   
   
-  
-  
   ####################### SERVER CODE TAB 4 ##################################################################################################
+  
+  #km_plot - not working
+    output$km_plot <- renderPlot({
+      
+      
+      km_fit <- survfit(Surv(Month, Deaths) ~ 1, data = mortality.df)
+      
+      ggsurvplot(km_fit, data = mortality.df, risk.table = TRUE)
+      
+      
+    })
+  
+  
+  
+  
+  ####################### SERVER CODE TAB 5 ##################################################################################################
   
   # Filter data based on selections
   output$table_dt <- DT::renderDataTable(DT::datatable({
