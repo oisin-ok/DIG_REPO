@@ -12,6 +12,8 @@ library(tidyverse)
 library(table1)
 library(plotly)
 library(DT)
+library(survival)
+library(survminer)
 
 #Data Cleaning
 #load in data
@@ -78,6 +80,14 @@ ui <- fluidPage(
   
   # Navbar page
   navbarPage("Digoxin Trial Data",
+             
+             
+             #PAGE 0
+             tabPanel("Demographics",
+                      
+             ), # navtab 0 close
+             
+             
              
              #PAGE 1
              tabPanel("Participant Information",
