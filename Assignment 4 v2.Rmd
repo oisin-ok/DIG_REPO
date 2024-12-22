@@ -494,7 +494,7 @@ dig.df %>%
          caption = "Source: Digitalis Investigation Group Trial",
          x = "Hospitalisation", 
          y= "Percentage (%) due to Worsening Heart Failure") +
-    scale_fill_manual(values = c("Dead" = "red", "Alive" = "skyblue")) +
+    scale_fill_manual(values = c("0" = "red", "1" = "skyblue")) +
     theme_bw()
 
 #overall
@@ -508,7 +508,7 @@ dig.df %>%
          caption = "Source: Digitalis Investigation Group Trial",
          x = "Hospitalisation", 
          y= "Percentage (%) due to Worsening Heart Failure") +
-    scale_fill_manual(values = c("Dead" = "red", "Alive" = "skyblue")) +
+    scale_fill_manual(values = c("0" = "red", "1" = "skyblue")) +
     theme_bw()
 
 ```
