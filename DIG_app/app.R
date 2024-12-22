@@ -21,7 +21,7 @@ dig.df <- read.csv("DIG.csv")
 
 #select variables
 dig.df <- dig.df %>%
-  select(ID, TRTMT, AGE, SEX, BMI, KLEVEL, CREAT, DIABP, SYSBP, HYPERTEN, CVD, WHF, DIG, HOSP, HOSPDAYS, DEATH, DEATHDAY)
+  select(ID, TRTMT, AGE, SEX, RACE, BMI, KLEVEL, CREAT, DIABP, SYSBP, HYPERTEN, CVD, WHF, DIG, HOSP, HOSPDAYS, DEATH, DEATHDAY)
 
 #calculate month variable
 dig.df <- dig.df %>%
@@ -36,6 +36,7 @@ dig.df$WHF <- as.factor(dig.df$WHF)
 dig.df$DIG <- as.factor(dig.df$DIG)
 dig.df$HOSP <- as.factor(dig.df$HOSP)
 dig.df$DEATH <- as.factor(dig.df$DEATH)
+dig.df$RACE <- as.factor(dig.df$RACE)
 
 #rename factor levels
 levels(dig.df$SEX) <- c("Male", "Female")
@@ -46,7 +47,7 @@ levels(dig.df$WHF) <- c("No", "Yes") # Hospitalisation due to Worsening Heart Fa
 levels(dig.df$DIG) <- c("No", "Yes") # Hospitalisation due to Digoxin Toxicity
 levels(dig.df$HOSP) <- c("No", "Yes") # Hospitalisation (any)
 levels(dig.df$DEATH) <- c("Alive", "Dead") # Vital status of patient
-
+levels(dig.df$RACE) <- c("White", "Other") # Patient ethnicity
 
 #remove KLEVEL outlier
 dig.df$KLEVEL[dig.df$KLEVEL > 100] <- NA
@@ -68,8 +69,9 @@ mortality.df <- mutate(mortality.df, Monthly_Risk = Deaths/Enrolled)
 # Variable Lists
 
 # Variables Categories
+every_var <- c("TRTMT", "SEX", "RACE", "HYPERTEN", "CVD", "WHF", "DIG", "HOSP", "DEATH", "AGE", "BMI", "KLEVEL", "CREAT", "DIABP", "SYSBP", "HOSPDAYS", "DEATHDAY")
 baseline_vars <- c("TRTMT", "AGE", "SEX", "BMI", "KLEVEL", "CREAT", "DIABP", "SYSBP", "HYPERTEN", "CVD", "WHF", "DIG", "HOSP")
-cat_vars <- c("TRTMT", "SEX", "HYPERTEN", "CVD", "WHF", "DIG", "HOSP", "DEATH")
+cat_vars <- c("TRTMT", "SEX", "RACE", "HYPERTEN", "CVD", "WHF", "DIG", "HOSP", "DEATH")
 cont_vars <- c("AGE", "BMI", "KLEVEL", "CREAT", "DIABP", "SYSBP", "HOSPDAYS", "DEATHDAY")
 
 
@@ -114,6 +116,10 @@ ui <- fluidPage(
              
              #PAGE 2
              tabPanel("Baseline Variables",
+                tabsetPanel(
+                  tabPanel("Mixed Compare (Boxplot)",
+                      
+                      
                       sidebarLayout(
                         
                         #sidebar - input control, select a variable to see its effect on mortality
@@ -125,36 +131,64 @@ ui <- fluidPage(
                         
                         #main panel - outputs
                         mainPanel(
-                                   uiOutput("baseline_table_title"),
-                                   uiOutput("table_baseline_compare"),
+                                   uiOutput("baseline_table_title_1"),
+                                   uiOutput("table_baseline_compare_1"),
                                    plotlyOutput("boxplot_baseline_compare_plotly")
                         ) # main close
                         ###
                         
                                     ) #  inner sidebar Layout close
+                            ), #tab panel inner 1 close
+                  
+                  tabPanel("Continuous Compare (Scatter)",
+                           
+                           sidebarLayout(
+                             
+                             #sidebar - input control, select a variable to see its effect on mortality
+                             sidebarPanel(
+                               selectInput("scatter_var1", "Choose a continuous variable to compare baseline values:", choices = cont_vars, selected = "AGE"),
+                               selectInput("scatter_var2", "Choose a continuous variable to compare across:", choices = cont_vars, selected = "BMI")
+                             ),
+                             ###
+                             
+                             #main panel - outputs
+                             mainPanel(
+                               uiOutput("baseline_table_title_2"),
+                               tableOutput("table_baseline_compare_2"),
+                               plotlyOutput("scatter_baseline_compare_plotly")
+                             ) # main close
+                             ###
+                             
+                           )
+                           ),
+                  
+                  
+                  tabPanel("Association Compare (Mosaic)",
+                           sidebarLayout(
+                             
+                             #sidebar - input control, select a variable to see its effect on mortality
+                             sidebarPanel(
+                               selectInput("mosaic_var1", "Choose a binary variable:", choices = cat_vars, selected = "TRTMT"),
+                               selectInput("mosaic_var2", "Choose a binary variable:", choices = cat_vars, selected = "SEX")
+                             ),
+                             ###
+                             
+                             #main panel - outputs
+                             mainPanel(
+                               uiOutput("baseline_table_title_3"),
+                               tableOutput("table_baseline_compare_3"),
+                               plotlyOutput("mosaic_baseline_compare_plotly")
+                             ) # main close
+                             ###
+                             
+                           )
+                           )
+                  
+                  
+                  
+                  
+                          ) #tabset panel close
                       ),# navtab close
-             
-             
-             #PAGE 3        - mosaic plots between variables and split over groups
-             tabPanel("Associations",
-                      sidebarLayout(
-                        
-                        #sidebar - input control
-                        sidebarPanel(
-                          
-                        ), 
-                        ###
-                        
-                        #main panel - outputs
-                        mainPanel(
-                          
-                          
-                        )
-                        ###
-                        
-                      ) # inner sidebar Layout close
-             ), # nav_tab 3 close
-             
              
              
              #PAGE 4         
@@ -208,21 +242,50 @@ ui <- fluidPage(
                                           ), # fluid row close
                                 # Create a new row for the table.
                                 DT::dataTableOutput("table_dt") #need to make the units/variable names clearer, and address the binary classifier under hospitalisation types
-
-                        #Maybe make one of those line plots for every variable we saw in the lectures to visualise the selection?
                         
                         
                                 ) # fluidPage close
              
              
              
-                      ) #nav_tab 5 close
+                      ), #nav_tab 5 close
+             
+             tabPanel("Parallel Coords Plot",
+                      titlePanel("Dynamic Parallel Coordinates Plot in Shiny"),
+                      
+                      
+                      sidebarLayout(
+                        sidebarPanel(
+                          checkboxGroupInput("vars", 
+                                             label = "Select continuous variables to include:",
+                                             choices = cont_vars, 
+                                             selected = cont_vars[1:5]),  # default
+                          
+                          # select which variable will determine the colour of the lines
+                          selectInput("colour_var", 
+                                      label = "Select a variable for colouring:",
+                                      choices = cat_vars, 
+                                      selected = cat_vars[1])  # default
+                      
+                        ),
+                        
+                        # Main panel
+                        mainPanel(
+                          plotlyOutput("parallel_plot")
+                        )
+                      )
+               
+               
+                      )
+             
+             
+             
             ) #navbar close
 
 )# UI close
 
 
-server <- function(input, output, session) {
+server <- function(input, output) {
   
   ####################### SERVER CODE TAB 1 ##################################################################################################
   
@@ -230,29 +293,14 @@ server <- function(input, output, session) {
   
   
   ####################### SERVER CODE TAB 2 ##################################################################################################
+  ####### SUBTAB 1 #######
   
   # selected variables
   bvar_1 <- reactive({input$base_var1})
   bvar_2 <- reactive({input$base_var2})
   
-  #update bvar_2 depending on bvar_1 choice
-  filtered_base_var2_choices <- reactive({
-    setdiff(cat_vars, input$base_var1) # Remove selected `base_var1` from `cat_vars`
-  })
-  
-  observeEvent(input$base_var1, {
-    updateSelectInput(
-      session, 
-      "base_var2",
-      choices = filtered_base_var2_choices(),
-      selected = NULL # Reset selection
-    )
-  })
-  
-  
-  
   # Table1 Dynamic Title
-  output$baseline_table_title <- renderUI({
+  output$baseline_table_title_1 <- renderUI({
     req(input$base_var1, input$base_var2)
     
     # Create a dynamic title
@@ -262,9 +310,8 @@ server <- function(input, output, session) {
     tags$h3(title_text, style = "margin-bottom: 20px;")
   })
   
-  # BASELINE COMPARISONS - TAB 2  
-  
-  output$table_baseline_compare <- renderUI({
+  # Table1 as DT
+  output$table_baseline_compare_1 <- renderUI({
     req(input$base_var1, input$base_var2) #prevent incompatible comparisons
     
     #remove NA values from base variables
@@ -301,6 +348,91 @@ server <- function(input, output, session) {
       )
     
   })
+  
+  ####### SUBTAB 2 #######
+  
+  # selected variables
+  svar_1 <- reactive({input$scatter_var1})
+  svar_2 <- reactive({input$scatter_var2})
+  
+  # Table1 Dynamic Title
+  output$baseline_table_title_2 <- renderUI({
+    req(input$scatter_var1, input$scatter_var2)
+    
+    # Create a dynamic title
+    title_text <- paste("Scatterplot of", svar_1(), "and", svar_2())
+    
+    # Render the title as an HTML element
+    tags$h3(title_text, style = "margin-bottom: 20px;")
+  })
+  
+  
+  # table of individual summary statistics
+  
+                                                                  #output$table_baseline_compare_2 <- renderTable({
+                                                                  #  summary_stats <- dig.df %>%
+                                                                  #    select(svar_1(), svar_2()) %>%
+                                                                  #    na.omit() %>%
+                                                                  #    summarise() # CLEAN THIS UP
+                                                                    
+                                                                  #})
+  
+  # scatter plot
+  
+  output$scatter_baseline_compare_plotly <- renderPlotly({
+    dig.df %>%
+      select(svar_1(), svar_2()) %>%
+      na.omit() %>%
+      plot_ly(
+        x = ~ .[[svar_2()]],
+        y = ~ .[[svar_1()]],
+        type = "scatter",
+        mode = 'markers'
+      ) %>%
+      layout(
+        xaxis = list(title = svar_2(),
+                     range = c(0, max(dig.df[[svar_2()]], na.rm = TRUE))
+                     ),
+        yaxis = list(title = svar_1(),
+                     range = c(0, max(dig.df[[svar_1()]], na.rm = TRUE))
+                     )
+      )
+  
+  })
+  
+  ####### SUBTAB 3 #######
+  
+  mvar_1 <- reactive({input$mosaic_var1})
+  mvar_2 <- reactive({input$mosaic_var2})
+  
+  #visualise
+  output$mosaic_baseline_compare_plotly <- renderPlotly({
+    
+    contingency_table <- table(dig.df[[mvar_1()]], dig.df[[mvar_2()]])
+    
+    contingency.df <- as.data.frame(contingency_table) %>%
+      group_by(Var1) %>%
+      mutate(percentage = Freq / sum(Freq) * 100) %>%
+      ungroup()
+    
+    plot_ly(
+      data = contingency.df,
+      x = ~Var1,  # First categorical variable (mvar_1)
+      y = ~Freq,  # Frequency count of each category combination
+      color = ~Var2,  # Second categorical variable (mvar_2)
+      type = "bar",
+      text = ~paste("Frequency: ", Freq, "<br>Percentage: ", round(percentage, 2), "%"),
+      hoverinfo = "text"
+    ) %>%
+      layout(
+        barmode = "stack",
+        title = paste("Associations between", mvar_1(), "and", mvar_2()),
+        xaxis = list(title = mvar_1()),  
+        yaxis = list(title = "Frequency") 
+      )
+    
+  })
+  
   
   ####################### SERVER CODE TAB 3 ##################################################################################################
   
@@ -355,6 +487,53 @@ server <- function(input, output, session) {
       caption = "Source: Digitalis Investigation Group Trial" ))
   
   
+  # Parallel Coordinates Plot
+  
+  output$parallel_plot <- renderPlotly({
+    
+    # Filter out  selected variables
+    selected_data <- dig.df[, input$vars, drop = FALSE]
+    
+    # Check if variables are selected
+    if (length(input$vars) == 0) {
+      return(NULL)
+    }
+    
+    # Select the categorical variable for colouring
+    colour_var <- dig.df[[input$colour_var]]
+    
+    # convert categorical variable to factor for colouring
+    if (is.factor(colour_var)) {
+      colour_var <- as.numeric(colour_var)
+    }
+    
+    # parallel coordinates plot with manual ranges
+    plot_ly(
+      data = selected_data,
+      type = "parcoords",
+      line = list(color = colour_var, colorscale = "Viridis"),  # colouring
+      dimensions = lapply(names(selected_data), function(var) {
+        
+        # Dynamically compute the range for each variable
+        var_min <- min(selected_data[[var]], na.rm = TRUE)
+        var_max <- max(selected_data[[var]], na.rm = TRUE)
+        
+        # Return the settings for the dimension
+        list(
+          range = c(var_min, var_max),  # min and max for each dimension's range
+          label = var,                  # Dimension label
+          values = selected_data[[var]] # Dimension values
+        )
+      })
+    ) %>%
+      layout(
+        title = "Parallel Coordinates Plot",
+        showlegend = FALSE
+      )
+  })
+  
+  
+    
   }
 
 # Run the application 
