@@ -48,7 +48,7 @@ levels(dig.df$WHF) <- c("No", "Yes") # Hospitalisation due to Worsening Heart Fa
 levels(dig.df$DIG) <- c("No", "Yes") # Hospitalisation due to Digoxin Toxicity
 levels(dig.df$HOSP) <- c("No", "Yes") # Hospitalisation (any)
 levels(dig.df$DEATH) <- c("Alive", "Dead") # Vital status of patient
-levels(dig.df$RACE) <- c("White", "Other") # Patient ethnicity
+levels(dig.df$RACE) <- c("White", "Non-white") # Patient ethnicity
 
 #remove KLEVEL outlier
 dig.df$KLEVEL[dig.df$KLEVEL > 100] <- NA
@@ -136,8 +136,8 @@ ui <- fluidPage(
                              
                              #sidebar - input control, select a variable to see its effect on mortality
                              sidebarPanel(
-                               selectInput("scatter_var1", "Choose a continuous variable to compare baseline values:", choices = cont_vars, selected = "AGE"),
-                               selectInput("scatter_var2", "Choose a continuous variable to compare across:", choices = cont_vars, selected = "BMI"),
+                               selectInput("scatter_var1", "Choose a continuous variable to compare baseline values (Y):", choices = cont_vars, selected = "AGE"),
+                               selectInput("scatter_var2", "Choose a continuous variable to compare across (X):", choices = cont_vars, selected = "BMI"),
                                selectInput("scatter_colour", "Choose a variable for colouring points:", choices = c("None" = "", cat_vars)),
                                h4("Variable Codebook"),
                                tableOutput("codebook_ui_2")
@@ -166,8 +166,8 @@ ui <- fluidPage(
                              
                              #sidebar - input control, select a variable to see its effect on mortality
                              sidebarPanel(
-                               selectInput("mosaic_var1", "Choose a binary variable:", choices = cat_vars, selected = "TRTMT"),
-                               selectInput("mosaic_var2", "Choose a binary variable:", choices = cat_vars, selected = "SEX"),
+                               selectInput("mosaic_var1", "Choose a binary variable (X):", choices = cat_vars, selected = "TRTMT"),
+                               selectInput("mosaic_var2", "Choose a binary variable (Colour):", choices = cat_vars, selected = "SEX"),
                                h4("Variable Codebook"),
                                tableOutput("codebook_table_bin_1")
                              ),
@@ -216,6 +216,7 @@ ui <- fluidPage(
                         
                         #main panel - outputs
                         mainPanel(
+                          uiOutput("KM_title"),
                           plotOutput("KM_plot")
                           
                         )
@@ -601,6 +602,19 @@ server <- function(input, output) {
   
   ####################### SERVER CODE TAB 4 ##################################################################################################
   
+  # dynamic title
+  output$KM_title <- renderUI({
+    req(input$KM_split)
+    
+    # Create a dynamic title
+    title_text <- paste("Kaplan-Meier Survival Curve by", input$KM_split)
+    
+    # Render the title as an HTML element
+    tags$h3(title_text, style = "margin-bottom: 20px;")
+  })
+  
+  
+  
   output$KM_plot <- renderPlot({
     
     km.df <- dig.df
@@ -617,7 +631,7 @@ server <- function(input, output) {
     colors <- c("red", "blue")
     
     # Plot the Kaplan-Meier survival curve
-    plot(fit, main = paste("Kaplan-Meier Survival Curve by", input$KM_split),
+    plot(fit,
          xlab = "Time (Months)", ylab = "Survival Probability", 
          col = colors[1:length(levels(km.df[[input$KM_split]]))], lwd = 2, 
          mark.time = input$show_censor)  # Toggle censoring marks based on checkbox
@@ -677,7 +691,7 @@ server <- function(input, output) {
   
   output$parallel_plot <- renderPlotly({
     
-    # Filter out  selected variables
+    # Filter out selected variables
     selected_data <- dig.df %>%
       select(all_of(input$vars)) %>%
       na.omit()
@@ -687,19 +701,29 @@ server <- function(input, output) {
       return(NULL)
     }
     
-    # Select the categorical variable for colouring
+    # Select the categorical variable for coloring
     colour_var <- dig.df[[input$colour_var]]
     
-    # convert categorical variable to factor for colouring
-    if (is.factor(colour_var)) {
-      colour_var <- as.numeric(colour_var)
-    }
+    # Ensure the coloring variable is a factor (for discrete colors)
+    colour_var <- as.factor(colour_var)
     
-    # parallel coordinates plot with manual ranges
+    # Parallel coordinates plot with discrete colors
     plot_ly(
       data = selected_data,
       type = "parcoords",
-      line = list(color = colour_var, colorscale = "Viridis"),  # colouring
+      line = list(
+        color = as.numeric(colour_var),  # Convert factor to numeric for coloring
+        colorscale = list(
+          list(0, "dodgerblue"),  # Map level 1 to blue
+          list(1, "darkorange")    # Map level 2 to red
+        ),
+        showscale = TRUE,  # Add a color legend
+        colorbar = list(
+          title = input$colour_var,  # Label for the colorbar
+          tickvals = c(1, 2),  # Ensure both levels are shown
+          ticktext = levels(colour_var)  # Display factor levels as tick labels
+        )
+      ),
       dimensions = lapply(names(selected_data), function(var) {
         
         # Dynamically compute the range for each variable
@@ -708,7 +732,7 @@ server <- function(input, output) {
         
         # Return the settings for the dimension
         list(
-          range = c(var_min, var_max),  # min and max for each dimension's range
+          range = c(var_min, var_max),  # Min and max for each dimension's range
           label = var,                  # Dimension label
           values = selected_data[[var]] # Dimension values
         )
@@ -716,9 +740,11 @@ server <- function(input, output) {
     ) %>%
       layout(
         title = "Parallel Coordinates Plot",
-        showlegend = FALSE
+        margin = list(l = 50, r = 50, t = 50, b = 50)
       )
   })
+  
+  
   
   #caption
   
