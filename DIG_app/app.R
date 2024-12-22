@@ -181,7 +181,7 @@ ui <- fluidPage(
                                selectInput("mosaic_var1", "Choose a binary variable:", choices = cat_vars, selected = "TRTMT"),
                                selectInput("mosaic_var2", "Choose a binary variable:", choices = cat_vars, selected = "SEX"),
                                h4("Variable Codebook"),
-                               tableOutput("codebook_table_bin")
+                               tableOutput("codebook_table_bin_1")
                              ),
                              ###
                              
@@ -263,8 +263,6 @@ ui <- fluidPage(
                   
                   tabPanel("Parallel Coordinates",
                            
-                           titlePanel("Dynamic Parallel Coordinates Plot"),
-                           
                            
                            sidebarLayout(
                              sidebarPanel(
@@ -277,12 +275,16 @@ ui <- fluidPage(
                                selectInput("colour_var", 
                                            label = "Select a variable for colouring:",
                                            choices = cat_vars, 
-                                           selected = cat_vars[1])  # default
+                                           selected = cat_vars[1]),  # default
+                               
+                               h4("Variable Codebook"),
+                               tableOutput("codebook_table_cont_1")
                                
                              ),
                              
                              # Main panel
                              mainPanel(
+                               titlePanel("Dynamic Parallel Coordinates Plot"),
                                plotlyOutput("parallel_plot"),
                                htmlOutput("parallel_plot_caption")
                              )
@@ -315,11 +317,12 @@ server <- function(input, output) {
     
   })
   
-  output$codebook_ui_1 <- renderUI({
+  #instances
+  output$codebook_ui_1 <- renderUI({ # Baseline Variables > Mixed Compare
     tableOutput("codebook_table")
   })
   
-  output$codebook_ui_2 <- renderUI({
+  output$codebook_ui_2 <- renderUI({ # Baseline Variables > Continuous Compare
     tableOutput("codebook_table")
   })
   
@@ -332,6 +335,26 @@ server <- function(input, output) {
                       "Vital Status of Patient")
     )
     
+  })
+  
+  #instances
+  output$codebook_table_bin_1 <- renderUI({ # Baseline Variables > Association Compare
+    tableOutput("codebook_table_bin")
+  })
+  
+  
+  #mini codebook - cont vars only
+  output$codebook_table_cont <- renderTable({
+    data.frame(
+      Variable = cont_vars,
+      Description = c("Age (years)", "Body Mass Index", "Serum Potassium (mmol/L", "Serum Creatinine (mg/dL)", 
+                      "Diastolic Blood Pressure", "Systolic Blood Pressure", "Days till First Hospitalisation", "Days till Last Followup/Death")
+    )
+  })
+  
+  
+  output$codebook_table_cont_1 <- renderUI({ # Explore the Data > Parallel coordinates
+    tableOutput("codebook_table_cont")
   })
   
   ####################### SERVER CODE TAB 1 ##################################################################################################
@@ -669,10 +692,7 @@ server <- function(input, output) {
   output$parallel_plot_caption <- renderUI({
     tags$div(
       style = "margin-top: 10px; font-style: italic; color: gray;",
-      "Parallel coordinates plot showing the relationships between a selection of continuous variables in the dataset. 
-      AGE = Age (years); BMI = Body Mass Index; KLEVEL = Serum Potassium (mmol/L); CREAT = Serum Creatinine (mg/dL); 
-      DIABP = Diastolic Blood Pressure (mmHg); SYSBP = Systolic Blood Pressure (mmHg); HOSPDAYS = Time till First Hospitalisation (days); 
-      DEATHDAY = Time till Last Followup (Days)"
+      "Parallel coordinates plot showing the relationships between a selection of continuous variables in the dataset."
     )
   })
     
