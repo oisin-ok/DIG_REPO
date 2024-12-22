@@ -14,6 +14,7 @@ library(plotly)
 library(DT)
 library(survival)
 library(survminer)
+library(ggplot2)
 
 #Data Cleaning
 #load in data
@@ -53,21 +54,6 @@ levels(dig.df$RACE) <- c("White", "Other") # Patient ethnicity
 dig.df$KLEVEL[dig.df$KLEVEL > 100] <- NA
 
 
-#mortality data frame
-mort_month<-summary(survfit(Surv(Month, DEATH) ~ 1, data = dig.df))
-
-mortality.df <- data.frame(Month = mort_month$time, # Extract month
-                           Enrolled = mort_month$n.risk[,1], # Extract number enrolled at beginning of each month
-                           Deaths = mort_month$n.event[,2], # Extract number of people who died (finished trial and died)
-                           Cum_Prob_Death = mort_month$pstate[,2]) # Extract the cumulative probability of death at each month
-
-mortality.df <- mutate(mortality.df, Monthly_Risk = Deaths/Enrolled)
-
-
-
-
-# Variable Lists
-
 # Variables Categories
 every_var <- c("TRTMT", "SEX", "RACE", "HYPERTEN", "CVD", "WHF", "DIG", "HOSP", "DEATH", "AGE", "BMI", "KLEVEL", "CREAT", "DIABP", "SYSBP", "HOSPDAYS", "DEATHDAY")
 baseline_vars <- c("TRTMT", "AGE", "SEX", "BMI", "KLEVEL", "CREAT", "DIABP", "SYSBP", "HYPERTEN", "CVD", "WHF", "DIG", "HOSP")
@@ -75,7 +61,7 @@ cat_vars <- c("TRTMT", "SEX", "RACE", "HYPERTEN", "CVD", "WHF", "DIG", "HOSP", "
 cont_vars <- c("AGE", "BMI", "KLEVEL", "CREAT", "DIABP", "SYSBP", "HOSPDAYS", "DEATHDAY")
 
 
-
+###################################################### SHINY #########################################################
 
 # Define UI for application that draws a histogram
 ui <- fluidPage(
@@ -134,8 +120,10 @@ ui <- fluidPage(
                         #main panel - outputs
                         mainPanel(
                                    uiOutput("baseline_table_title_1"),
-                                   uiOutput("table_baseline_compare_1"),
-                                   plotlyOutput("boxplot_baseline_compare_plotly")
+                                   
+                                   plotlyOutput("boxplot_baseline_compare_plotly"),
+                                   
+                                   uiOutput("table_baseline_compare_1")
                         ) # main close
                         ###
                         
@@ -209,13 +197,26 @@ ui <- fluidPage(
                         
                         #sidebar - input control, select a baseline measurement to compare across groups
                         sidebarPanel(
-                          radioButtons("mortality_type", "Select mortality statistic to view:", c("Absolute_Deaths", "Cumulative_Risk", "Instantaneous Risk", "Kaplan_Meir"))
+                         selectInput("KM_split", "Select a stratification variable:",
+                                     choices = c("TRTMT", "SEX", "RACE", "HYPERTEN", "CVD", "WHF", "DIG", "HOSP"),
+                                     selected = "TRTMT"),
+                         
+                         # Checkbox to toggle censor points
+                         checkboxInput("show_censor", "Show Censor Points", value = TRUE),
+                         
+                         # Checkbox to toggle grid background
+                         checkboxInput("show_grid", "Show Grid", value = TRUE),
+                         
+                         #codebook
+                         h4("Variable Codebook"),
+                         tableOutput("codebook_table_bin_2")
+                         
                         ), 
                         ###
                         
                         #main panel - outputs
                         mainPanel(
-                          plotOutput("km_plot")
+                          plotOutput("KM_plot")
                           
                         )
                         ###
@@ -278,7 +279,7 @@ ui <- fluidPage(
                                            selected = cat_vars[1]),  # default
                                
                                h4("Variable Codebook"),
-                               tableOutput("codebook_table_cont_1")
+                               tableOutput("codebook_ui_3")
                                
                              ),
                              
@@ -326,6 +327,10 @@ server <- function(input, output) {
     tableOutput("codebook_table")
   })
   
+  output$codebook_ui_3 <- renderUI({ # Explore the Data > Parallel coordinates
+    tableOutput("codebook_table")
+  })
+  
   #mini codebook - binary vars only
   output$codebook_table_bin <- renderTable({
     data.frame(
@@ -342,6 +347,10 @@ server <- function(input, output) {
     tableOutput("codebook_table_bin")
   })
   
+  output$codebook_table_bin_2 <- renderUI({ # Mortality
+    tableOutput("codebook_table_bin")
+  })
+  
   
   #mini codebook - cont vars only
   output$codebook_table_cont <- renderTable({
@@ -352,8 +361,8 @@ server <- function(input, output) {
     )
   })
   
-  
-  output$codebook_table_cont_1 <- renderUI({ # Explore the Data > Parallel coordinates
+  #maybe delete
+  output$codebook_table_cont_1 <- renderUI({ # not in use
     tableOutput("codebook_table_cont")
   })
   
@@ -592,16 +601,40 @@ server <- function(input, output) {
   
   ####################### SERVER CODE TAB 4 ##################################################################################################
   
-  #km_plot - not working
-    output$km_plot <- renderPlot({
-      
-      
-      km_fit <- survfit(Surv(Month, Deaths) ~ 1, data = mortality.df)
-      
-      ggsurvplot(km_fit, data = mortality.df, risk.table = TRUE)
-      
-      
-    })
+  output$KM_plot <- renderPlot({
+    
+    km.df <- dig.df
+    levels(km.df$DEATH) <- c(0, 1)
+    km.df$DEATH <- as.numeric(km.df$DEATH)
+    
+    # dynamically create formula
+    km_formula <- as.formula(paste("Surv(Month, DEATH) ~", input$KM_split))
+    
+    # Fit Kaplan-Meier model
+    fit <- survfit(km_formula, data = km.df)
+    
+    # colours for the binary groups
+    colors <- c("red", "blue")
+    
+    # Plot the Kaplan-Meier survival curve
+    plot(fit, main = paste("Kaplan-Meier Survival Curve by", input$KM_split),
+         xlab = "Time (Months)", ylab = "Survival Probability", 
+         col = colors[1:length(levels(km.df[[input$KM_split]]))], lwd = 2, 
+         mark.time = input$show_censor)  # Toggle censoring marks based on checkbox
+    
+    # Add grid lines to the plot if the checkbox is selected
+    if (input$show_grid) {
+      grid(col = "gray", lty = "dotted")
+    }
+    
+    # Add a legend
+    legend("topright", 
+           legend = levels(km.df[[input$KM_split]]),  # level names
+           fill = colors[1:length(levels(km.df[[input$KM_split]]))],  # colours for the boxes
+           title = paste(input$KM_split),  # title
+           cex = 1.2, 
+           border = "black")
+  })
   
   
   
