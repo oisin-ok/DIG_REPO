@@ -125,7 +125,9 @@ ui <- fluidPage(
                         #sidebar - input control, select a variable to see its effect on mortality
                         sidebarPanel(
                           selectInput("base_var1", "Choose a continuous variable to compare baseline values:", choices = cont_vars, selected = "AGE"),
-                          selectInput("base_var2", "Choose a condition to compare across:", choices = cat_vars) # make this optional? so if nothing selected, single box plot summarising variable
+                          selectInput("base_var2", "Choose a condition to compare across:", choices = cat_vars), # make this optional? so if nothing selected, single box plot summarising variable
+                          h4("Variable Codebook"),
+                          tableOutput("codebook_ui_1")
                         ),
                         ###
                         
@@ -147,15 +149,23 @@ ui <- fluidPage(
                              #sidebar - input control, select a variable to see its effect on mortality
                              sidebarPanel(
                                selectInput("scatter_var1", "Choose a continuous variable to compare baseline values:", choices = cont_vars, selected = "AGE"),
-                               selectInput("scatter_var2", "Choose a continuous variable to compare across:", choices = cont_vars, selected = "BMI")
+                               selectInput("scatter_var2", "Choose a continuous variable to compare across:", choices = cont_vars, selected = "BMI"),
+                               selectInput("scatter_colour", "Choose a variable for colouring points:", choices = c("None" = "", cat_vars)),
+                               h4("Variable Codebook"),
+                               tableOutput("codebook_ui_2")
                              ),
                              ###
                              
                              #main panel - outputs
                              mainPanel(
+                               #visualisation
                                uiOutput("baseline_table_title_2"),
                                tableOutput("table_baseline_compare_2"),
-                               plotlyOutput("scatter_baseline_compare_plotly")
+                               plotlyOutput("scatter_baseline_compare_plotly"),
+                               
+                               #summary stats
+                               h4("Summary Statistics for Selected Variables"),
+                               tableOutput("summary_table")
                              ) # main close
                              ###
                              
@@ -169,7 +179,9 @@ ui <- fluidPage(
                              #sidebar - input control, select a variable to see its effect on mortality
                              sidebarPanel(
                                selectInput("mosaic_var1", "Choose a binary variable:", choices = cat_vars, selected = "TRTMT"),
-                               selectInput("mosaic_var2", "Choose a binary variable:", choices = cat_vars, selected = "SEX")
+                               selectInput("mosaic_var2", "Choose a binary variable:", choices = cat_vars, selected = "SEX"),
+                               h4("Variable Codebook"),
+                               tableOutput("codebook_table_bin")
                              ),
                              ###
                              
@@ -214,7 +226,8 @@ ui <- fluidPage(
              
              #PAGE 5         
              tabPanel("Explore the Data",
-                     
+                tabsetPanel(
+                  tabPanel("All Data",
                       fluidPage(
                         titlePanel("Digitalis Investigation Group Trial"),
                       
@@ -241,43 +254,44 @@ ui <- fluidPage(
                                           )
                                           ), # fluid row close
                                 # Create a new row for the table.
-                                DT::dataTableOutput("table_dt") #need to make the units/variable names clearer, and address the binary classifier under hospitalisation types
+                                DT::dataTableOutput("table_dt")
                         
                         
                                 ) # fluidPage close
              
-             
-             
-                      ), #nav_tab 5 close
-             
-             tabPanel("Parallel Coords Plot",
-                      titlePanel("Dynamic Parallel Coordinates Plot in Shiny"),
-                      
-                      
-                      sidebarLayout(
-                        sidebarPanel(
-                          checkboxGroupInput("vars", 
-                                             label = "Select continuous variables to include:",
-                                             choices = cont_vars, 
-                                             selected = cont_vars[1:5]),  # default
-                          
-                          # select which variable will determine the colour of the lines
-                          selectInput("colour_var", 
-                                      label = "Select a variable for colouring:",
-                                      choices = cat_vars, 
-                                      selected = cat_vars[1])  # default
-                      
-                        ),
-                        
-                        # Main panel
-                        mainPanel(
-                          plotlyOutput("parallel_plot")
+                          ),
+                  
+                  tabPanel("Parallel Coordinates",
+                           
+                           titlePanel("Dynamic Parallel Coordinates Plot"),
+                           
+                           
+                           sidebarLayout(
+                             sidebarPanel(
+                               checkboxGroupInput("vars", 
+                                                  label = "Select continuous variables to include:",
+                                                  choices = cont_vars, 
+                                                  selected = cont_vars[1:5]),  # default
+                               
+                               # select which variable will determine the colour of the lines
+                               selectInput("colour_var", 
+                                           label = "Select a variable for colouring:",
+                                           choices = cat_vars, 
+                                           selected = cat_vars[1])  # default
+                               
+                             ),
+                             
+                             # Main panel
+                             mainPanel(
+                               plotlyOutput("parallel_plot"),
+                               htmlOutput("parallel_plot_caption")
+                             )
+                           )
+                           
+                           
+                          )
                         )
-                      )
-               
-               
-                      )
-             
+                      ), #nav_tab 5 close
              
              
             ) #navbar close
@@ -286,6 +300,39 @@ ui <- fluidPage(
 
 
 server <- function(input, output) {
+  
+  ####################### Misc ##################################################################################################
+  
+  #mini codebook
+  output$codebook_table <- renderTable({
+    data.frame(
+      Variable = every_var,
+      Description = c("Treatment", "Sex", "Race", "History of Hypertension", "Hospitalisation due to Cardiovascular Disease", 
+                      "Hospitalisation due to Worsening Heart Faillure", "Hospitalisation due to Digoxin Toxicity", "Hospitalisation", 
+                      "Vital Status of Patient", "Age (years)", "Body Mass Index", "Serum Potassium (mmol/L", "Serum Creatinine (mg/dL)", 
+                      "Diastolic Blood Pressure", "Systolic Blood Pressure", "Days till First Hospitalisation", "Days till Last Followup/Death")
+    )
+    
+  })
+  
+  output$codebook_ui_1 <- renderUI({
+    tableOutput("codebook_table")
+  })
+  
+  output$codebook_ui_2 <- renderUI({
+    tableOutput("codebook_table")
+  })
+  
+  #mini codebook - binary vars only
+  output$codebook_table_bin <- renderTable({
+    data.frame(
+      Variable = cat_vars,
+      Description = c("Treatment", "Sex", "Race", "History of Hypertension", "Hospitalisation due to Cardiovascular Disease", 
+                      "Hospitalisation due to Worsening Heart Faillure", "Hospitalisation due to Digoxin Toxicity", "Hospitalisation", 
+                      "Vital Status of Patient")
+    )
+    
+  })
   
   ####################### SERVER CODE TAB 1 ##################################################################################################
   
@@ -312,7 +359,7 @@ server <- function(input, output) {
   
   # Table1 as DT
   output$table_baseline_compare_1 <- renderUI({
-    req(input$base_var1, input$base_var2) #prevent incompatible comparisons
+    req(input$base_var1, input$base_var2)
     
     #remove NA values from base variables
     clean_data.df <- dig.df %>%
@@ -320,7 +367,7 @@ server <- function(input, output) {
     
     formula <- as.formula(paste("~", bvar_1(), "|", bvar_2()))
     
-    tbl <- table1(formula, data = clean_data.df) # generate table1 with two input variables # maybe make this able to select multiple variables in rows later?
+    tbl <- table1(formula, data = clean_data.df) # generate table1 with two input variables
     
     tbl_df <- as.data.frame(tbl) #convert to dataframe to make it prettier
     
@@ -365,45 +412,129 @@ server <- function(input, output) {
     # Render the title as an HTML element
     tags$h3(title_text, style = "margin-bottom: 20px;")
   })
-  
-  
-  # table of individual summary statistics
-  
-                                                                  #output$table_baseline_compare_2 <- renderTable({
-                                                                  #  summary_stats <- dig.df %>%
-                                                                  #    select(svar_1(), svar_2()) %>%
-                                                                  #    na.omit() %>%
-                                                                  #    summarise() # CLEAN THIS UP
-                                                                    
-                                                                  #})
+
   
   # scatter plot
   
   output$scatter_baseline_compare_plotly <- renderPlotly({
-    dig.df %>%
-      select(svar_1(), svar_2()) %>%
-      na.omit() %>%
+    req(input$scatter_var1, input$scatter_var2)  # Ensure variables are selected
+    
+    # Base selected columns
+    selected_columns <- c(input$scatter_var1, input$scatter_var2)
+    
+    # Add colour variable if it's not "None"
+    if (input$scatter_colour != "") {
+      selected_columns <- c(selected_columns, input$scatter_colour)
+    }
+    
+    scatter_data <- dig.df %>%
+      select(all_of(selected_columns)) %>%
+      na.omit()
+    
+    # Calculate the correlation coefficient
+    correlation <- cor(scatter_data[[input$scatter_var1]], scatter_data[[input$scatter_var2]], use = "complete.obs")
+    corr_text <- paste("Correlation: ", round(correlation, 2))
+    
+    # Check if a colour variable is selected
+    if (input$scatter_colour == "") {
+      # Default plot without colouring
       plot_ly(
-        x = ~ .[[svar_2()]],
-        y = ~ .[[svar_1()]],
+        data = scatter_data,
+        x = ~ get(input$scatter_var2),
+        y = ~ get(input$scatter_var1),
         type = "scatter",
-        mode = 'markers'
+        mode = "markers",
+        marker = list(color = "#1F77B4")  # Default uniform colour
       ) %>%
-      layout(
-        xaxis = list(title = svar_2(),
-                     range = c(0, max(dig.df[[svar_2()]], na.rm = TRUE))
-                     ),
-        yaxis = list(title = svar_1(),
-                     range = c(0, max(dig.df[[svar_1()]], na.rm = TRUE))
-                     )
-      )
-  
+        layout(
+          title = list( # correlation coef
+            text = paste("Scatter Plot of", input$scatter_var1, "vs", input$scatter_var2, "<br>", corr_text),
+            x = 0.5,  
+            y = 0.95, 
+            yanchor = 'top'
+          ),
+          margin = list(t = 100), # axes start at 0
+          xaxis = list(
+            title = input$scatter_var2,
+            range = c(0, max(dig.df[[input$scatter_var2]], na.rm = TRUE))
+          ),
+          yaxis = list(
+            title = input$scatter_var1,
+            range = c(0, max(dig.df[[input$scatter_var1]], na.rm = TRUE))
+          )
+        )
+    } else {
+      # Plot with colouring by the selected binary variable
+      plot_ly(
+        data = scatter_data,
+        x = ~ get(input$scatter_var2),
+        y = ~ get(input$scatter_var1),
+        color = ~ as.factor(get(input$scatter_colour)),  
+        colors = c("#1F77B4", "red4"),
+        type = "scatter",
+        mode = "markers"
+      ) %>%
+        layout(
+          title = list( # correlation coef
+            text = paste("Scatter Plot of", input$scatter_var1, "vs", input$scatter_var2, "<br>", corr_text),
+            x = 0.5,
+            y = 0.95,
+            yanchor = 'top'
+          ),
+          margin = list(t = 100), 
+          xaxis = list( # both axes start at 0
+            title = input$scatter_var2,
+            range = c(0, max(dig.df[[input$scatter_var2]], na.rm = TRUE))
+          ),
+          yaxis = list(
+            title = input$scatter_var1,
+            range = c(0, max(dig.df[[input$scatter_var1]], na.rm = TRUE))
+          )
+        )
+    }
   })
+  
+  
+  # summary stats
+  
+  output$summary_table <- renderTable({
+    
+    # compute summary statistics for both variables
+    summary_var1 <- summary(na.omit(dig.df[[svar_1()]]))
+    summary_var2 <- summary(na.omit(dig.df[[svar_2()]]))
+    
+    # combine both summaries into one data frame
+    combined_summary <- data.frame(
+      Statistic = names(summary_var1),
+      beep = as.vector(summary_var1),
+      boop = as.vector(summary_var2)
+    )
+    
+    # name columns accordingly
+    colnames(combined_summary)[2] <- svar_1()
+    colnames(combined_summary)[3] <- svar_2()
+    
+    # return combined summary as a table
+    combined_summary
+  })
+  
   
   ####### SUBTAB 3 #######
   
   mvar_1 <- reactive({input$mosaic_var1})
   mvar_2 <- reactive({input$mosaic_var2})
+  
+  # dynamic title
+  output$baseline_table_title_3 <- renderUI({
+    req(input$mosaic_var1, input$mosaic_var2)
+    
+    # Create a dynamic title
+    title_text <- paste("Association between", mvar_1(), "and", mvar_2())
+    
+    # Render the title as an HTML element
+    tags$h3(title_text, style = "margin-bottom: 20px;")
+  })
+  
   
   #visualise
   output$mosaic_baseline_compare_plotly <- renderPlotly({
@@ -417,16 +548,15 @@ server <- function(input, output) {
     
     plot_ly(
       data = contingency.df,
-      x = ~Var1,  # First categorical variable (mvar_1)
+      x = ~Var1,  
       y = ~Freq,  # Frequency count of each category combination
-      color = ~Var2,  # Second categorical variable (mvar_2)
+      color = ~Var2,
       type = "bar",
       text = ~paste("Frequency: ", Freq, "<br>Percentage: ", round(percentage, 2), "%"),
       hoverinfo = "text"
     ) %>%
       layout(
         barmode = "stack",
-        title = paste("Associations between", mvar_1(), "and", mvar_2()),
         xaxis = list(title = mvar_1()),  
         yaxis = list(title = "Frequency") 
       )
@@ -480,7 +610,7 @@ server <- function(input, output) {
       data
     }
   },  rownames = FALSE,
-      colnames = c("ID", "Treatment", "Age (Years)", "Sex", "BMI", "Serum Potassium (mmol/L)", "Serum Creatinine (mg/dL)",
+      colnames = c("ID", "Treatment", "Age (Years)", "Sex", "Race", "BMI", "Serum Potassium (mmol/L)", "Serum Creatinine (mg/dL)",
                    "Diastolic BP (mmHg)", "Systolic BP (mmHg)", "Hypertension History", "Hospitalisation: Cardiovascular Disease (1=Yes)",
                    "Hospitalisation: Worsening Heart Failure (1=Yes)", "Hospitalisation: Digoxin Toxicity (1=Yes)", "Hospitalisation (Any)",
                    "Time till First Hospitalisation (Days)", "Status", "Time till Last Followup (Days)", "Time till Last Followup (Months)"),
@@ -492,7 +622,9 @@ server <- function(input, output) {
   output$parallel_plot <- renderPlotly({
     
     # Filter out  selected variables
-    selected_data <- dig.df[, input$vars, drop = FALSE]
+    selected_data <- dig.df %>%
+      select(all_of(input$vars)) %>%
+      na.omit()
     
     # Check if variables are selected
     if (length(input$vars) == 0) {
@@ -532,7 +664,17 @@ server <- function(input, output) {
       )
   })
   
+  #caption
   
+  output$parallel_plot_caption <- renderUI({
+    tags$div(
+      style = "margin-top: 10px; font-style: italic; color: gray;",
+      "Parallel coordinates plot showing the relationships between a selection of continuous variables in the dataset. 
+      AGE = Age (years); BMI = Body Mass Index; KLEVEL = Serum Potassium (mmol/L); CREAT = Serum Creatinine (mg/dL); 
+      DIABP = Diastolic Blood Pressure (mmHg); SYSBP = Systolic Blood Pressure (mmHg); HOSPDAYS = Time till First Hospitalisation (days); 
+      DEATHDAY = Time till Last Followup (Days)"
+    )
+  })
     
   }
 
