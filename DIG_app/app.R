@@ -70,31 +70,47 @@ ui <- fluidPage(
   navbarPage("Digoxin Trial Data",
              
              #PAGE 1
-             tabPanel("Participant Information",
-                      sidebarLayout(
-                        sidebarPanel(
-                          selectInput("cont_hist_var", "Select a Continuous Variable for Histogram:", 
-                                      choices = cont_vars),
-                          selectInput("binary_pie_var", "Select a Binary Variable for Pie Chart:", 
-                                      choices = cat_vars),
-                          selectInput("summary_var", "Select a Variable for Summary Statistics:", 
-                                      choices = c(cont_vars, cat_vars))
-                        ),
-                        mainPanel(
-                          tabsetPanel(
-                            tabPanel("Histograms",
-                                     plotlyOutput("cont_histograms")
+                 tabPanel("Participant Information",
+                      tabsetPanel(
+                        tabPanel("Continuous Variables",
+                          sidebarLayout(
+                            sidebarPanel(
+                              selectInput("cont_hist_var", "Select a Continuous Variable for Histogram:", choices = cont_vars),
+                              h4("Variable Codebook"),
+                              tableOutput("codebook_table_cont_1")
                             ),
-                            tabPanel("Pie Charts",
-                                     plotlyOutput("binary_pie_charts")
-                            ),
-                            tabPanel("Summary Statistics",
-                                     tableOutput("summary_stats_table"),
-                                     plotlyOutput("summary_boxplot")
+                            
+                            mainPanel(
+                              
+                                       plotlyOutput("cont_histograms"),
+                                       htmlOutput("histo_caption"),
+                                       div(style = "height: 40px;"), # divider for space
+                                       plotlyOutput("summary_boxplot"),
+                                       htmlOutput("one_box_caption"),
+                                       div(style = "height: 40px;"), # divider for space
+                                       tableOutput("summary_stats_table_cont")
+                              )
                             )
-                          )
+                          ),
+                        
+                        
+                        tabPanel("Categorical Variables",
+                                 sidebarLayout(
+                                   sidebarPanel(
+                                     selectInput("binary_pie_var", "Select a Binary Variable for Pie Chart:", choices = cat_vars),
+                                     h4("Variable Codebook"),
+                                     tableOutput("codebook_table_bin_3")
+                                   ),
+                                   mainPanel(
+                                     plotlyOutput("binary_pie_charts"),
+                                     htmlOutput("pie_caption"),
+                                     div(style = "height: 40px;"), # divider for space
+                                     tableOutput("summary_stats_table_cat")
+                                   )
+                                 )
+                                 )
+                        
                         )
-                      )
              ), # navtab 1 close
              
              #PAGE 2
@@ -353,6 +369,10 @@ server <- function(input, output) {
     tableOutput("codebook_table_bin")
   })
   
+  output$codebook_table_bin_3 <- renderUI({ # Demographics > Categorical
+    tableOutput("codebook_table_bin")
+  })
+  
   
   #mini codebook - cont vars only
   output$codebook_table_cont <- renderTable({
@@ -363,7 +383,7 @@ server <- function(input, output) {
     )
   })
   
-  #maybe delete
+  # instances
   output$codebook_table_cont_1 <- renderUI({ # not in use
     tableOutput("codebook_table_cont")
   })
@@ -378,7 +398,7 @@ server <- function(input, output) {
       data = dig.df,
       x = ~ get(input$cont_hist_var),
       type = "histogram",
-      marker = list(color = "#1f77b4")
+      marker = list(color = "dodgerblue")
     ) %>%
       layout(
         title = paste("Histogram of", input$cont_hist_var),
@@ -386,6 +406,16 @@ server <- function(input, output) {
         yaxis = list(title = "Count")
       )
   })
+  
+  #caption
+  output$histo_caption <- renderUI({
+    tags$div(
+      style = "margin-top: 10px; font-style: italic; color: gray;",
+      HTML("Histogram showing distribution of continuous baseline variables.
+           <br>Source: Digitalis Investigation Group Trial")
+    )
+  })
+  
   
   ## Binary Variable Pie Charts ##
   output$binary_pie_charts <- renderPlotly({
@@ -403,42 +433,68 @@ server <- function(input, output) {
       type = "pie",
       textinfo = "label+percent",
       insidetextorientation = "radial",
-      marker = list(colors = c("#ff7f0e", "#1f77b4"))
+      marker = list(colors = c("darkorange", "dodgerblue"))
     ) %>%
       layout(
         title = paste("Distribution of", input$binary_pie_var)
       )
   })
   
+  #caption
+  output$pie_caption <- renderUI({
+    tags$div(
+      style = "margin-top: 10px; font-style: italic; color: gray;",
+      HTML("Piechart showing proportions of categorical variable levels.
+           <br>Source: Digitalis Investigation Group Trial")
+    )
+  })
+  
   ## Summary Statistics ##
   
   # Table
-  output$summary_stats_table <- renderTable({
-    req(input$summary_var)  # Ensure a variable is selected
+  output$summary_stats_table_cont <- renderTable({
+    req(input$cont_hist_var)  # Ensure a variable is selected
     
-    summary_stats <- summary(dig.df[[input$summary_var]])  # Use na.omit for summary
-    data.frame(Statistic = names(summary_stats), Value = as.vector(summary_stats))
+    summary_stats_cont <- summary(na.omit(dig.df[[input$cont_hist_var]]))  
+    data.frame(Statistic = names(summary_stats_cont), Value = as.vector(summary_stats_cont))
+  })
+  
+  # Table
+  output$summary_stats_table_cat <- renderTable({
+    req(input$binary_pie_var)  # Ensure a variable is selected
+    
+    summary_stats_cat <- summary(na.omit(dig.df[[input$binary_pie_var]]))  
+    data.frame(Statistic = names(summary_stats_cat), Value = as.vector(summary_stats_cat))
   })
   
   # Boxplot
   output$summary_boxplot <- renderPlotly({
-    req(input$summary_var)  # Ensure a variable is selected
+    req(input$cont_hist_var)  # Ensure a variable is selected
     
     # Check if the variable is numeric (for valid boxplot)
-    if (is.numeric(dig.df[[input$summary_var]])) {
+    if (is.numeric(dig.df[[input$cont_hist_var]])) {
       plot_ly(
         data = dig.df,
-        y = ~ get(input$summary_var),
+        y = ~ get(input$cont_hist_var),
         type = "box",
-        marker = list(color = "#1f77b4")
+        marker = list(color = "dodgerblue")
       ) %>%
         layout(
-          title = paste("Boxplot of", input$summary_var),
-          yaxis = list(title = input$summary_var)
+          title = paste("Boxplot of", input$cont_hist_var),
+          yaxis = list(title = input$cont_hist_var)
         )
     } else {
       NULL  # Skip boxplot if the variable is not numeric
     }
+  })
+  
+  #caption
+  output$one_box_caption <- renderUI({
+    tags$div(
+      style = "margin-top: 10px; font-style: italic; color: gray;",
+      HTML("Boxplot showing summary of distribution for the continuous variable.
+           <br>Source: Digitalis Investigation Group Trial")
+    )
   })
   
   
@@ -490,7 +546,7 @@ server <- function(input, output) {
         y = ~ .[[bvar_1()]],
         type = "box",
         color = ~ .[[bvar_2()]],
-        colors = c("red", "blue")
+        colors = c("darkorange", "dodgerblue")
       ) %>%
       layout(
         xaxis = list(title = bvar_2()),
@@ -581,7 +637,7 @@ server <- function(input, output) {
         x = ~ get(input$scatter_var2),
         y = ~ get(input$scatter_var1),
         color = ~ as.factor(get(input$scatter_colour)),  
-        colors = c("#1F77B4", "red4"),
+        colors = c("dodgerblue", "darkorange"),
         type = "scatter",
         mode = "markers"
       ) %>%
@@ -672,6 +728,7 @@ server <- function(input, output) {
       y = ~Freq,  # Frequency count of each category combination
       color = ~Var2,
       type = "bar",
+      colors = c("darkorange", "dodgerblue"),
       text = ~paste("Frequency: ", Freq, "<br>Percentage: ", round(percentage, 2), "%"),
       hoverinfo = "text"
     ) %>%
@@ -738,7 +795,7 @@ server <- function(input, output) {
       fit <- survfit(km_formula, data = km.df, conf.int = FALSE)
       
       # Colours for the binary groups
-      colors <- c("red", "blue")
+      colors <- c("darkorange", "dodgerblue")
       
       # Plot the Kaplan-Meier survival curve
       plot(fit,
