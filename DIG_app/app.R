@@ -123,6 +123,8 @@ ui <- fluidPage(
                                    
                                    plotlyOutput("boxplot_baseline_compare_plotly"),
                                    
+                                   htmlOutput("box_caption"),
+                                   
                                    uiOutput("table_baseline_compare_1")
                         ) # main close
                         ###
@@ -150,6 +152,7 @@ ui <- fluidPage(
                                uiOutput("baseline_table_title_2"),
                                tableOutput("table_baseline_compare_2"),
                                plotlyOutput("scatter_baseline_compare_plotly"),
+                               htmlOutput("scatter_caption"),
                                
                                #summary stats
                                h4("Summary Statistics for Selected Variables"),
@@ -161,7 +164,7 @@ ui <- fluidPage(
                            ),
                   
                   
-                  tabPanel("Association Compare (Mosaic)",
+                  tabPanel("Association Compare (Stacked Bar)",
                            sidebarLayout(
                              
                              #sidebar - input control, select a variable to see its effect on mortality
@@ -177,7 +180,8 @@ ui <- fluidPage(
                              mainPanel(
                                uiOutput("baseline_table_title_3"),
                                tableOutput("table_baseline_compare_3"),
-                               plotlyOutput("mosaic_baseline_compare_plotly")
+                               plotlyOutput("mosaic_baseline_compare_plotly"),
+                               htmlOutput("mosaic_caption")
                              ) # main close
                              ###
                              
@@ -198,8 +202,8 @@ ui <- fluidPage(
                         #sidebar - input control, select a baseline measurement to compare across groups
                         sidebarPanel(
                          selectInput("KM_split", "Select a stratification variable:",
-                                     choices = c("TRTMT", "SEX", "RACE", "HYPERTEN", "CVD", "WHF", "DIG", "HOSP"),
-                                     selected = "TRTMT"),
+                                     choices = c("None", "TRTMT", "SEX", "RACE", "HYPERTEN", "CVD", "WHF", "DIG", "HOSP"),
+                                     selected = "None"),
                          
                          # Checkbox to toggle censor points
                          checkboxInput("show_censor", "Show Censor Points", value = TRUE),
@@ -217,8 +221,8 @@ ui <- fluidPage(
                         #main panel - outputs
                         mainPanel(
                           uiOutput("KM_title"),
-                          plotOutput("KM_plot")
-                          
+                          plotOutput("KM_plot"),
+                          htmlOutput("KM_caption")
                         )
                         ###
                         
@@ -426,7 +430,15 @@ server <- function(input, output) {
         xaxis = list(title = bvar_2()),
         yaxis = list(title = bvar_1())
       )
-    
+  })
+  
+  #caption
+  output$box_caption <- renderUI({
+    tags$div(
+      style = "margin-top: 10px; font-style: italic; color: gray;",
+      HTML("Boxplots showing summary statistics for two continuous variables between groups. Hover over plots for more information.
+           <br>Source: Digitalis Investigation Group Trial")
+    )
   })
   
   ####### SUBTAB 2 #######
@@ -527,6 +539,15 @@ server <- function(input, output) {
     }
   })
   
+  #caption
+  output$scatter_caption <- renderUI({
+    tags$div(
+      style = "margin-top: 10px; font-style: italic; color: gray;",
+      HTML("Scatterplot showing association between continuous variables including correlation coefficient.
+           <br>Source: Digitalis Investigation Group Trial")
+    )
+  })
+  
   
   # summary stats
   
@@ -596,60 +617,94 @@ server <- function(input, output) {
     
   })
   
+  #caption
+  output$mosaic_caption <- renderUI({
+    tags$div(
+      style = "margin-top: 10px; font-style: italic; color: gray;",
+      HTML("Stacked bar chart showing differences in proportions between binary variables in the dataset.
+           <br>Source: Digitalis Investigation Group Trial")
+    )
+  })
+  
   
   ####################### SERVER CODE TAB 3 ##################################################################################################
   
   
   ####################### SERVER CODE TAB 4 ##################################################################################################
   
-  # dynamic title
+  # Dynamic title
   output$KM_title <- renderUI({
-    req(input$KM_split)
-    
-    # Create a dynamic title
-    title_text <- paste("Kaplan-Meier Survival Curve by", input$KM_split)
+    if (input$KM_split == "None") {
+      title_text <- "Kaplan-Meier Survival Curve"
+    } else {
+      title_text <- paste("Kaplan-Meier Survival Curve by", input$KM_split)
+    }
     
     # Render the title as an HTML element
     tags$h3(title_text, style = "margin-bottom: 20px;")
   })
   
-  
-  
   output$KM_plot <- renderPlot({
-    
     km.df <- dig.df
     levels(km.df$DEATH) <- c(0, 1)
     km.df$DEATH <- as.numeric(km.df$DEATH)
     
-    # dynamically create formula
-    km_formula <- as.formula(paste("Surv(Month, DEATH) ~", input$KM_split))
-    
-    # Fit Kaplan-Meier model
-    fit <- survfit(km_formula, data = km.df)
-    
-    # colours for the binary groups
-    colors <- c("red", "blue")
-    
-    # Plot the Kaplan-Meier survival curve
-    plot(fit,
-         xlab = "Time (Months)", ylab = "Survival Probability", 
-         col = colors[1:length(levels(km.df[[input$KM_split]]))], lwd = 2, 
-         mark.time = input$show_censor)  # Toggle censoring marks based on checkbox
-    
-    # Add grid lines to the plot if the checkbox is selected
-    if (input$show_grid) {
-      grid(col = "gray", lty = "dotted")
+    if (input$KM_split == "None") {
+      # Single curve when "None" is selected
+      fit <- survfit(Surv(Month, DEATH) ~ 1, data = km.df, conf.int = FALSE)
+      
+      plot(fit,
+           xlab = "Time (Months)", ylab = "Survival Probability",
+           col = "black", lwd = 2,
+           mark.time = input$show_censor,
+           conf.int = FALSE)  
+      
+      # Add grid lines to the plot if the checkbox is selected
+      if (input$show_grid) {
+        grid(col = "gray", lty = "dotted")
+      }
+      
+    } else {
+      # Stratified curve when a variable is selected
+      km_formula <- as.formula(paste("Surv(Month, DEATH) ~", input$KM_split))
+      
+      # Fit Kaplan-Meier model
+      fit <- survfit(km_formula, data = km.df, conf.int = FALSE)
+      
+      # Colours for the binary groups
+      colors <- c("red", "blue")
+      
+      # Plot the Kaplan-Meier survival curve
+      plot(fit,
+           xlab = "Time (Months)", ylab = "Survival Probability", 
+           col = colors[1:length(levels(km.df[[input$KM_split]]))], lwd = 2, 
+           mark.time = input$show_censor)  # Toggle censoring marks based on checkbox
+      
+      # Add grid lines to the plot if the checkbox is selected
+      if (input$show_grid) {
+        grid(col = "gray", lty = "dotted")
+      }
+      
+      # Add a legend
+      legend("topright", 
+             legend = levels(km.df[[input$KM_split]]),  # Level names
+             fill = colors[1:length(levels(km.df[[input$KM_split]]))],  # Colours for the boxes
+             title = paste(input$KM_split),  # Title
+             cex = 1.2, 
+             border = "black")
     }
-    
-    # Add a legend
-    legend("topright", 
-           legend = levels(km.df[[input$KM_split]]),  # level names
-           fill = colors[1:length(levels(km.df[[input$KM_split]]))],  # colours for the boxes
-           title = paste(input$KM_split),  # title
-           cex = 1.2, 
-           border = "black")
   })
   
+  
+  #caption
+  
+  output$KM_caption <- renderUI({
+    tags$div(
+      style = "margin-top: 10px; font-style: italic; color: gray;",
+      HTML("Kaplan-Meier survival curve, showing cumulative probability of survival for trial participants. Plus symbols (+) depict censorship events.
+           <br>Source: Digitalis Investigation Group Trial")
+    )
+  })
   
   
   
@@ -751,7 +806,8 @@ server <- function(input, output) {
   output$parallel_plot_caption <- renderUI({
     tags$div(
       style = "margin-top: 10px; font-style: italic; color: gray;",
-      "Parallel coordinates plot showing the relationships between a selection of continuous variables in the dataset."
+      HTML("Parallel coordinates plot showing the relationships between a selection of continuous variables in the dataset.
+           <br> Source: Digitalis Investigation Group Trial")
     )
   })
     
