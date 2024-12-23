@@ -72,32 +72,29 @@ ui <- fluidPage(
              #PAGE 1
              tabPanel("Participant Information",
                       sidebarLayout(
-                        
-                        #sidebar - input control, select demographic variable
                         sidebarPanel(
-                          selectInput("dem_var", "Choose a variable to view its distribution:", choices = c("a", "b", "c"))
-                        ), 
-                        ###
-                        
-                        #main panel - outputs
+                          selectInput("cont_hist_var", "Select a Continuous Variable for Histogram:", 
+                                      choices = cont_vars),
+                          selectInput("binary_pie_var", "Select a Binary Variable for Pie Chart:", 
+                                      choices = cat_vars),
+                          selectInput("summary_var", "Select a Variable for Summary Statistics:", 
+                                      choices = c(cont_vars, cat_vars))
+                        ),
                         mainPanel(
-                                  tabsetPanel(
-                                              tabPanel("Summary Statistics"
-                                                        
-                                                        
-                                                        
-                                                      ), # tab1 close
-                                              
-                                              tabPanel("Summary Statistics"
-                                                       
-                                                       
-                                                       
-                                                      ) # tab2 close
-                                              ) # tabset close
-                                  ) # main close
-                        ###
-                        
-                      ) # inner sidebar Layout close
+                          tabsetPanel(
+                            tabPanel("Histograms",
+                                     plotlyOutput("cont_histograms")
+                            ),
+                            tabPanel("Pie Charts",
+                                     plotlyOutput("binary_pie_charts")
+                            ),
+                            tabPanel("Summary Statistics",
+                                     tableOutput("summary_stats_table"),
+                                     plotlyOutput("summary_boxplot")
+                            )
+                          )
+                        )
+                      )
              ), # navtab 1 close
              
              #PAGE 2
@@ -373,7 +370,76 @@ server <- function(input, output) {
   
   ####################### SERVER CODE TAB 1 ##################################################################################################
   
+  ## Continuous Variable Histograms ##
+  output$cont_histograms <- renderPlotly({
+    req(input$cont_hist_var)  # Ensure a variable is selected
+    
+    plot_ly(
+      data = dig.df,
+      x = ~ get(input$cont_hist_var),
+      type = "histogram",
+      marker = list(color = "#1f77b4")
+    ) %>%
+      layout(
+        title = paste("Histogram of", input$cont_hist_var),
+        xaxis = list(title = input$cont_hist_var),
+        yaxis = list(title = "Count")
+      )
+  })
   
+  ## Binary Variable Pie Charts ##
+  output$binary_pie_charts <- renderPlotly({
+    req(input$binary_pie_var)  # Ensure a variable is selected
+    
+    # Use sym() and count the occurrences of each binary category
+    pie_data <- dig.df %>%
+      filter(!is.na(!!sym(input$binary_pie_var))) %>%
+      count(!!sym(input$binary_pie_var))  # Ensuring proper grouping with sym
+    
+    plot_ly(
+      data = pie_data,
+      labels = ~ get(input$binary_pie_var),  # This should be fine with dynamic input
+      values = ~ n,
+      type = "pie",
+      textinfo = "label+percent",
+      insidetextorientation = "radial",
+      marker = list(colors = c("#ff7f0e", "#1f77b4"))
+    ) %>%
+      layout(
+        title = paste("Distribution of", input$binary_pie_var)
+      )
+  })
+  
+  ## Summary Statistics ##
+  
+  # Table
+  output$summary_stats_table <- renderTable({
+    req(input$summary_var)  # Ensure a variable is selected
+    
+    summary_stats <- summary(dig.df[[input$summary_var]])  # Use na.omit for summary
+    data.frame(Statistic = names(summary_stats), Value = as.vector(summary_stats))
+  })
+  
+  # Boxplot
+  output$summary_boxplot <- renderPlotly({
+    req(input$summary_var)  # Ensure a variable is selected
+    
+    # Check if the variable is numeric (for valid boxplot)
+    if (is.numeric(dig.df[[input$summary_var]])) {
+      plot_ly(
+        data = dig.df,
+        y = ~ get(input$summary_var),
+        type = "box",
+        marker = list(color = "#1f77b4")
+      ) %>%
+        layout(
+          title = paste("Boxplot of", input$summary_var),
+          yaxis = list(title = input$summary_var)
+        )
+    } else {
+      NULL  # Skip boxplot if the variable is not numeric
+    }
+  })
   
   
   ####################### SERVER CODE TAB 2 ##################################################################################################
